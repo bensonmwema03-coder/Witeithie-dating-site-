@@ -1,0 +1,91 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Public and private user information.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "displayName": { "type": "string" },
+        "bio": { "type": "string" },
+        "age": { "type": "integer" },
+        "gender": { "type": "string", "enum": ["male", "female", "other"] },
+        "interests": { "type": "array", "items": { "type": "string" } },
+        "photos": { "type": "array", "items": { "type": "string" } },
+        "location": {
+          "type": "object",
+          "properties": {
+            "latitude": { "type": "number" },
+            "longitude": { "type": "number" },
+            "lastUpdated": { "type": "number" }
+          }
+        },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" },
+        "onboarded": { "type": "boolean" },
+        "tokens": { "type": "integer", "default": 0 },
+        "subscriptionStatus": { "type": "string", "enum": ["active", "inactive"], "default": "inactive" },
+        "subscriptionExpiry": { "type": "number" }
+      },
+      "required": ["displayName", "age", "gender", "createdAt", "updatedAt", "onboarded", "tokens", "subscriptionStatus"]
+    },
+    "Match": {
+      "title": "Match",
+      "description": "A successful match between two users.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "users": { "type": "array", "items": { "type": "string" } },
+        "lastMessage": { "type": "string" },
+        "lastMessageTime": { "type": "number" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["users", "createdAt"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A chat message.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "matchId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "read": { "type": "boolean" }
+      },
+      "required": ["matchId", "senderId", "text", "createdAt", "read"]
+    },
+    "Interaction": {
+      "title": "Interaction",
+      "description": "A swipe like or pass.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "fromId": { "type": "string" },
+        "toId": { "type": "string" },
+        "type": { "type": "string", "enum": ["like", "pass"] },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["fromId", "toId", "type", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile data."
+    },
+    "matches/{matchId}": {
+      "schema": "Match",
+      "description": "Match data."
+    },
+    "matches/{matchId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Chat messages between matched users."
+    },
+    "interactions/{interactionId}": {
+      "schema": "Interaction",
+      "description": "User swipes."
+    }
+  }
+}

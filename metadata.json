@@ -1,0 +1,6 @@
+{
+  "name": "Witeithie Dating Site",
+  "description": "A high-end dating platform for the local Witeithie community, featuring bold typography and authentic connections.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["Real-time messaging", "Location-based matching", "Secure authentication"]
+}

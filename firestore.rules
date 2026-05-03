@@ -1,0 +1,96 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Validation Blueprints ---
+
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['displayName', 'age', 'gender', 'createdAt', 'updatedAt', 'onboarded']) &&
+             data.keys().size() >= 6 &&
+             data.displayName is string && data.displayName.size() <= 100 &&
+             data.age is int && data.age >= 18 && data.age <= 120 &&
+             data.gender in ['male', 'female', 'other'] &&
+             data.createdAt == request.time &&
+             data.updatedAt == request.time &&
+             data.onboarded is bool;
+    }
+
+    function isValidInteraction(data) {
+      return data.keys().hasAll(['fromId', 'toId', 'type', 'createdAt']) &&
+             data.keys().size() == 4 &&
+             data.fromId == request.auth.uid &&
+             isValidId(data.toId) &&
+             data.type in ['like', 'pass'] &&
+             data.createdAt == request.time;
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['matchId', 'senderId', 'text', 'createdAt', 'read']) &&
+             data.keys().size() == 5 &&
+             data.senderId == request.auth.uid &&
+             data.text is string && data.text.size() <= 1000 &&
+             data.createdAt == request.time &&
+             data.read == false;
+    }
+
+    // --- Collection Matches ---
+
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn(); // Allow listing for discovery
+      allow create: if isOwner(userId) && isValidUserProfile(incoming());
+      allow update: if isOwner(userId) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'bio', 'age', 'gender', 'interests', 'photos', 'location', 'updatedAt', 'onboarded', 'tokens', 'subscriptionStatus', 'subscriptionExpiry']) &&
+                       incoming().updatedAt == request.time;
+    }
+
+    match /interactions/{interactionId} {
+      allow get: if isSignedIn() && (isOwner(existing().fromId) || isOwner(existing().toId));
+      allow create: if isSignedIn() && isValidInteraction(incoming());
+      // Updates and deletes not typically allowed for interactions in this flow
+    }
+
+    match /matches/{matchId} {
+      allow get, list: if isSignedIn() && request.auth.uid in existing().users;
+      // Matches are created via backend or careful client logic (atomic checks)
+      // For this applet, let's assume client can create if they are part of it
+      allow create: if isSignedIn() && request.auth.uid in incoming().users && incoming().users.size() == 2;
+      allow update: if isSignedIn() && request.auth.uid in existing().users &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['lastMessage', 'lastMessageTime']);
+    }
+
+    match /matches/{matchId}/messages/{messageId} {
+      allow list: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.users;
+      allow get: if isSignedIn() && request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.users;
+      allow create: if isSignedIn() && 
+                    request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.users &&
+                    isValidMessage(incoming()) &&
+                    incoming().matchId == matchId;
+    }
+  }
+}
